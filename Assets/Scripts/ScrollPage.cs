@@ -14,10 +14,13 @@ public class ScrollPage : MonoBehaviour, IBeginDragHandler, IEndDragHandler
     List<float> _pagesPercent = new List<float>();
     [HideInInspector]
     public int CurrentPageIndex = -1;
-
+    [Header("滑动速度")]
     public float SmoothSpeed = 4;
     public int Height = 300;
     public int Width = 300;
+    [Range(1, 9)]
+    [Header("拖动灵敏度")]
+    public int Sensitivity = 4;
     [HideInInspector]
     public int PageCount = 0;
     public Action PageChangeAction;
@@ -31,13 +34,18 @@ public class ScrollPage : MonoBehaviour, IBeginDragHandler, IEndDragHandler
     float startime = 0f;
     float delay = 0.1f;
 
-    // Use this for initialization
-    void Start()
+    void Awake()
     {
         rect = transform.GetComponent<ScrollRect>();
+
+    }
+
+    void Start()
+    {
         startime = Time.time;
         InitLayout();
         UpdatePagesPercent();
+        rect.horizontalNormalizedPosition = 0;
     }
 
     void Update()
@@ -51,30 +59,33 @@ public class ScrollPage : MonoBehaviour, IBeginDragHandler, IEndDragHandler
         }
     }
 
+    private float _starDragPosX = 0;
     public void OnBeginDrag(PointerEventData eventData)
     {
+        _starDragPosX = rect.horizontalNormalizedPosition;
         isDrag = true;
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
         isDrag = false;
-
-        float posX = rect.horizontalNormalizedPosition;
-        int index = 0;
-        //假设离第一位最近
-        float nearestDis = Mathf.Abs(_pagesPercent[index] - posX);
-        for (int i = 1; i < _pagesPercent.Count; i++)
+        float endDragPosX = rect.horizontalNormalizedPosition;
+        if (endDragPosX - _starDragPosX > (float)1/(PageCount*Sensitivity))
         {
-            float temp = Mathf.Abs(_pagesPercent[i] - posX);
-            if (temp < nearestDis)
-            {
-                index = i;
-
-                nearestDis = temp;
-            }
+            ChangePage(CurrentPageIndex + 1);
         }
-        ChangePage(index);
+        else if (endDragPosX - _starDragPosX < -(float)1 / (PageCount * Sensitivity))
+        {
+            ChangePage(CurrentPageIndex - 1);
+        }
+        else
+        {
+            ChangePage(CurrentPageIndex);
+        }
+        if (CurrentPageIndex==-1)
+        {
+            ChangePage(0);
+        }
     }
 
     public void ChangePage(int pageNum)
@@ -92,13 +103,14 @@ public class ScrollPage : MonoBehaviour, IBeginDragHandler, IEndDragHandler
             CurrentPageIndex = pageNum;
             OnPageChanged(_pagesPercent.Count, CurrentPageIndex);
             isDrag = false;
+            targethorizontal = _pagesPercent[CurrentPageIndex];
+            if (PageChangeAction != null)
+            {
+                PageChangeAction();
+            }
         }
+       
 
-        targethorizontal = _pagesPercent[pageNum];
-        if (PageChangeAction!=null)
-        {
-            PageChangeAction();
-        }
     }
 
     private void InitLayout()
@@ -143,7 +155,7 @@ public class ScrollPage : MonoBehaviour, IBeginDragHandler, IEndDragHandler
                 {
                     float page = 0;
                     if (count != 1)
-                        page = i / ((float) (count - 1));
+                        page = i / ((float)(count - 1));
                     _pagesPercent.Add(page);
                 }
             }
